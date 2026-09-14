@@ -1,0 +1,151 @@
+<style>
+ .saas-panel{background:white;border:1px solid #dbe3ef;border-radius:18px;padding:22px;max-width:520px;width:100%;box-shadow:0 18px 60px #0f172a25;color:#172554;font-family:system-ui,sans-serif}
+ .saas-panel label{display:block;font-size:13px;font-weight:650;margin-top:12px}
+ .saas-panel input,.saas-panel select{display:block;border:1px solid #cbd5e1;border-radius:9px;padding:11px;width:100%;margin-top:5px;background:white;color:#0f172a}
+ .saas-panel button{border:0;border-radius:9px;padding:11px 16px;background:#4338ca;color:white;font-weight:650;margin-top:12px;cursor:pointer}
+ .saas-panel button:disabled{opacity:.5;cursor:wait}
+ .saas-note{font-size:13px;line-height:1.5;white-space:pre-wrap;margin-top:12px}
+ #saas-upload-dialog{position:fixed;inset:0;background:#0f172a99;z-index:150;display:none;align-items:center;justify-content:center;padding:16px;overflow:auto}
+ #saas-upload-dialog.open{display:flex}
+</style>
+<div id="saas-upload-dialog"><form class="saas-panel" id="saas-upload-form">
+  <h2 style="font-size:19px;font-weight:750">Simpan dokumen sekolah</h2>
+  <p class="saas-note">Pilih destinasi. Sistem menyimpan fail PDF atau DOCX sedia ada (maksimum 8 MB).</p>
+  <label>Jenis dokumen<select id="saas-doc-type"><option value="RPH">RPH</option><option value="OPR">OPR</option><option value="DASAR">Dasar panitia</option><option value="MESYUARAT">Mesyuarat panitia</option><option value="PENTAKSIRAN">Pentaksiran PBD / UASA</option><option value="BBM">Bank soalan / BBM</option><option value="RPI">RPI</option><option value="RPH_INKLUSIF">RPH inklusif</option></select></label>
+  <label>Bahagian<select id="saas-doc-section"><option value="KURIKULUM">Kurikulum</option><option value="HEM">HEM</option><option value="KOKURIKULUM">Kokurikulum</option><option value="PPKI">PPKI</option></select></label>
+  <label>Panitia (jika berkaitan)<select id="saas-doc-panel"><option value="">Tiada panitia / program umum</option></select></label>
+  <label>Kategori Kokurikulum<select id="saas-doc-koko"><option value="">Tidak berkaitan</option><option value="SUKAN">Sukan / permainan</option><option value="KELAB">Kelab / persatuan</option><option value="BERUNIFORM">Badan beruniform</option></select></label>
+  <label>Fail<input type="file" id="saas-doc-file" accept=".pdf,.docx" required></label>
+  <button type="submit" id="saas-upload-submit">Simpan ke Drive sekolah</button>
+  <button type="button" onclick="document.getElementById('saas-upload-dialog').classList.remove('open')" style="background:#64748b">Tutup</button>
+  <div id="saas-upload-result" class="saas-note" role="status"></div>
+</form></div>
+<script>
+var PORTAL_SESSION=null,PORTAL_BOOT=null,PORTAL_CHALLENGE='',PORTAL_QUEUE=[],PORTAL_READY=false;
+var portalStorage={
+  key:function(k){return 'portal:'+((PORTAL_SESSION&&PORTAL_SESSION.school)||'belum-masuk')+':'+k;},
+  getItem:function(k){return localStorage.getItem(this.key(k));},
+  setItem:function(k,v){localStorage.setItem(this.key(k),v);},
+  removeItem:function(k){localStorage.removeItem(this.key(k));}
+};
+function portalText(value){
+  if(typeof value==='string'&&PORTAL_BOOT)return value.replaceAll('__NAMA_SEKOLAH__',PORTAL_BOOT.sekolah.nama).replaceAll('__KOD_SEKOLAH__',PORTAL_BOOT.sekolah.kod||'').replaceAll('__ALAMAT_SEKOLAH__',PORTAL_BOOT.sekolah.alamat||'');
+  if(Array.isArray(value))return value.map(portalText);
+  if(value&&typeof value==='object'){Object.keys(value).forEach(function(k){value[k]=portalText(value[k]);});}
+  return value;
+}
+function portalProxy(success,failure,userObject){
+  return new Proxy({}, {get:function(_,key){
+    if(key==='withSuccessHandler')return function(fn){return portalProxy(fn,failure,userObject);};
+    if(key==='withFailureHandler')return function(fn){return portalProxy(success,fn,userObject);};
+    if(key==='withUserObject')return function(obj){return portalProxy(success,failure,obj);};
+    if(key==='then')return undefined;
+    return function(){
+      var args=Array.prototype.slice.call(arguments);
+      var prepared=Promise.resolve();
+      if(['simpanAtauKemasKiniOpr','simpanLaporanOprKokumBackend','janaPdfOprKokumBackendPortal'].includes(key)&&args[0]&&!args[0].idLaporan){
+        if(key==='simpanAtauKemasKiniOpr'){
+          var field=document.getElementById('oprIdLaporan');args[0].idLaporan=field.value||('OPR-'+crypto.randomUUID());field.value=args[0].idLaporan;
+        }else{
+          prepared=crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(args[0]))).then(function(digest){
+            var checksum=Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+            var storageKey='opr-request:'+((PORTAL_SESSION&&PORTAL_SESSION.school)||'')+':'+key+':'+checksum;
+            args[0].idLaporan=sessionStorage.getItem(storageKey)||('OPR-'+crypto.randomUUID());sessionStorage.setItem(storageKey,args[0].idLaporan);
+          });
+        }
+      }
+      function invoke(){
+        prepared.then(function(){
+          if(!PORTAL_SESSION)return;
+          google.script.run.withSuccessHandler(function(res){
+          if(res&&(res.success===false||res.status==='ERROR')){fail(new Error(res.message||res.pesanan||'Operasi gagal.'));return;}
+          if(success)success(portalText(res),userObject);
+          }).withFailureHandler(fail).portalRpc(PORTAL_SESSION.token,key,args);
+        }).catch(fail);
+      }
+      function fail(err){
+        if(failure)failure(err,userObject);else console.warn('Portal '+key+': '+err.message);
+        if(/Sesi tamat|Sila log masuk|Log masuk semula|Akses pengguna telah/.test(err.message)){PORTAL_READY=false;PORTAL_SESSION=null;sessionStorage.removeItem('portalSession');portalShowLogin();}
+      }
+      if(!PORTAL_READY){if(PORTAL_QUEUE.length<80)PORTAL_QUEUE.push(invoke);return;}
+      invoke();
+    };
+  }});
+}
+var portalRun=portalProxy();
+function portalShowLogin(){
+  var screen=document.getElementById('skrinPilihNama');
+  screen.classList.remove('hidden');
+  screen.innerHTML='<form class="saas-panel" id="saas-login-form"><h1 style="font-size:22px;font-weight:750">Portal Sekolah</h1><p class="saas-note">Masuk menggunakan emel yang didaftarkan oleh pentadbir sekolah.</p><label>ID sekolah<input id="saas-school" autocomplete="organization" placeholder="Contoh: XBA1026" required></label><label>Emel berdaftar<input id="saas-email" type="email" autocomplete="email" placeholder="nama@gmail.com" required></label><button type="button" id="saas-request">Hantar kod ke emel</button><label>Kod sekali guna<input id="saas-otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="6 digit"></label><button type="submit" id="saas-verify">Log masuk</button><p class="saas-note" id="saas-auth-message" role="status">Kod sah selama 10 minit.</p></form>';
+  document.getElementById('saas-request').onclick=portalRequest;
+  document.getElementById('saas-login-form').onsubmit=function(e){e.preventDefault();portalVerify();};
+}
+function authMessage(text){document.getElementById('saas-auth-message').textContent=text;}
+function portalRequest(){
+  var s=document.getElementById('saas-school').value.trim(),e=document.getElementById('saas-email').value.trim(),btn=document.getElementById('saas-request');
+  if(!s||!e){authMessage('Isi ID sekolah dan emel.');return;}
+  btn.disabled=true;authMessage('Menghantar kod...');
+  google.script.run.withSuccessHandler(function(r){btn.disabled=false;PORTAL_CHALLENGE=r.challenge;authMessage(r.message);document.getElementById('saas-otp').focus();}).withFailureHandler(function(err){btn.disabled=false;authMessage(err.message);}).portalMintaKod(s,e);
+}
+function portalVerify(){
+  var s=document.getElementById('saas-school').value.trim(),e=document.getElementById('saas-email').value.trim(),code=document.getElementById('saas-otp').value.trim(),btn=document.getElementById('saas-verify');
+  if(!PORTAL_CHALLENGE||!/^\d{6}$/.test(code)){authMessage('Minta kod emel dan masukkan enam digit kod tersebut.');return;}
+  btn.disabled=true;authMessage('Mengesahkan...');
+  google.script.run.withSuccessHandler(function(r){PORTAL_SESSION={token:r.token,expires:r.expires,school:s};sessionStorage.setItem('portalSession',JSON.stringify(PORTAL_SESSION));portalLoad();}).withFailureHandler(function(err){btn.disabled=false;authMessage(err.message);}).portalSahkanKod(s,e,PORTAL_CHALLENGE,code);
+}
+function portalStart(){
+  try{PORTAL_SESSION=JSON.parse(sessionStorage.getItem('portalSession')||'null');}catch(e){PORTAL_SESSION=null;}
+  if(typeof google==='undefined'||!google.script){portalShowLogin();authMessage('Buka portal melalui deployment Google Apps Script untuk log masuk.');return;}
+  if(PORTAL_SESSION&&PORTAL_SESSION.expires>Date.now())portalLoad();else portalShowLogin();
+}
+function portalLoad(){
+  google.script.run.withSuccessHandler(function(r){
+    PORTAL_BOOT=r;PORTAL_READY=true;
+    document.title='Portal '+r.sekolah.nama;
+    if(typeof KOORDINAT_SK_SOOK!=='undefined')KOORDINAT_SK_SOOK=r.sekolah.gps;
+    var passwordField=document.getElementById('txtUserPassword');if(passwordField){passwordField.readOnly=true;passwordField.placeholder='Log masuk melalui kod emel';var parent=passwordField.closest('.space-y-1')||passwordField.parentNode;parent.style.display='none';}
+    portalBrandDom();portalDirectories();
+    var panel=document.getElementById('oprPanitiaKod');var upload=document.getElementById('saas-doc-panel');
+    [panel,upload].forEach(function(sel){if(!sel)return;while(sel.options.length>1)sel.remove(1);r.panitia.forEach(function(p){var o=document.createElement('option');o.value=p[0];o.textContent=p[1].replace(/^\d+_/,'').replaceAll('_',' ');sel.appendChild(o);});});
+    if(!r.sekolah.adaPpki){var tab=document.getElementById('tabMenu_ppki');if(tab)tab.style.display='none';document.querySelectorAll('#saas-doc-section option[value="PPKI"],#saas-doc-type option[value="RPI"],#saas-doc-type option[value="RPH_INKLUSIF"]').forEach(function(o){o.remove();});}
+    var unit=document.getElementById('oprKokumUnit');
+    if(unit&&!document.getElementById('oprKokumKategoriSaas')){var select=document.createElement('select');select.id='oprKokumKategoriSaas';select.className='w-full border p-2 rounded-xl';select.innerHTML='<option value="">Pilih kategori unit</option><option value="SUKAN">Sukan / permainan</option><option value="KELAB">Kelab / persatuan</option><option value="BERUNIFORM">Badan beruniform</option>';unit.parentNode.appendChild(select);}
+    var section=document.getElementById('oprBahagian');if(section)section.addEventListener('change',function(){document.getElementById('oprPanitiaKod').value='';document.getElementById('oprKategoriKoko').value='';});
+    binaTabelKehadiran();muatDataDskpGoogleSheets();
+    portalRun.withSuccessHandler(function(list){isiSenaraiGuru(list);pilihGuruDanMasuk(r.guru);}).getSenaraiGuruWeb();
+    portalRun.withSuccessHandler(function(logo){if(logo)pasangLogoSekolah(logo);}).dapatkanLogoSekolah();
+    var queue=PORTAL_QUEUE.splice(0);queue.forEach(function(fn){fn();});
+    if(!document.getElementById('saas-open-upload')){var btn=document.createElement('button');btn.id='saas-open-upload';btn.textContent='Simpan dokumen ke Drive';btn.className='px-4 py-2 bg-indigo-700 text-white rounded-xl';btn.onclick=function(){document.getElementById('saas-upload-dialog').classList.add('open');};var host=document.getElementById('content_kurikulum');if(host)host.prepend(btn);}
+  }).withFailureHandler(function(err){PORTAL_SESSION=null;sessionStorage.removeItem('portalSession');portalShowLogin();authMessage(err.message);}).portalBootstrap(PORTAL_SESSION.token);
+}
+function portalBrandDom(){
+  function update(root){var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);var node;while((node=walker.nextNode())){if(node.parentElement&&['SCRIPT','STYLE'].includes(node.parentElement.tagName))continue;if(node.nodeValue.includes('__NAMA_SEKOLAH__')||node.nodeValue.includes('__KOD_SEKOLAH__')||node.nodeValue.includes('__ALAMAT_SEKOLAH__'))node.nodeValue=portalText(node.nodeValue);}}
+  update(document.body);
+  if(!window.portalBrandObserver){window.portalBrandObserver=new MutationObserver(function(records){records.forEach(function(r){r.addedNodes.forEach(function(n){if(n.nodeType===1)update(n);else if(n.nodeType===3&&n.nodeValue.includes('__NAMA_SEKOLAH__'))n.nodeValue=portalText(n.nodeValue);});});});window.portalBrandObserver.observe(document.body,{childList:true,subtree:true});}
+}
+function portalDirectories(){
+  ['modalKurikulum','modalPpki'].forEach(function(id){var host=document.getElementById(id);if(!host)return;
+    var target=host.querySelector('.overflow-y-auto')||host.querySelector('div');if(!target)return;
+    var old=host.querySelector('[data-saas-directories]');if(old)old.remove();
+    var box=document.createElement('div');box.dataset.saasDirectories='1';box.className='grid gap-2 p-4';
+    PORTAL_BOOT.direktori.filter(function(d){return id==='modalPpki'?['PPKI','RPI','OPR_PPKI'].includes(d.kod):/^PANITIA_[A-Z_]+$/.test(d.kod)&&PORTAL_BOOT.panitia.some(function(p){return d.kod==='PANITIA_'+p[0];});}).forEach(function(d){var a=document.createElement('a');a.href=d.url;a.target='_blank';a.rel='noopener';a.textContent=d.path.split('/').pop().replaceAll('_',' ');a.className='block border rounded-xl p-3 bg-white text-indigo-800';box.appendChild(a);});
+    if(!box.children.length)box.textContent='Direktori belum tersedia. Status: '+PORTAL_BOOT.sekolah.status;
+    target.prepend(box);
+  });
+}
+function portalLogout(){
+  var token=PORTAL_SESSION&&PORTAL_SESSION.token;
+  PORTAL_SESSION=null;PORTAL_READY=false;PORTAL_QUEUE=[];sessionStorage.removeItem('portalSession');
+  if(token)google.script.run.withSuccessHandler(function(){location.reload();}).withFailureHandler(function(){location.reload();}).portalLogKeluar(token);else location.reload();
+}
+document.getElementById('saas-upload-form').onsubmit=function(e){
+  e.preventDefault();var file=document.getElementById('saas-doc-file').files[0],btn=document.getElementById('saas-upload-submit'),out=document.getElementById('saas-upload-result');
+  if(!file||file.size>8*1024*1024){out.textContent='Pilih PDF atau DOCX maksimum 8 MB.';return;}
+  var meta={jenisDokumen:document.getElementById('saas-doc-type').value,bahagian:document.getElementById('saas-doc-section').value,panitiaKod:document.getElementById('saas-doc-panel').value,kategoriKoko:document.getElementById('saas-doc-koko').value};
+  btn.disabled=true;out.textContent='Menyimpan...';var reader=new FileReader();reader.onerror=function(){btn.disabled=false;out.textContent='Gagal membaca fail.';};reader.onload=function(){
+    var mime=/\.docx$/i.test(file.name)?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'application/pdf';
+    var data=String(reader.result).replace(/^data:[^;]*;/,'data:'+mime+';');
+    google.script.run.withSuccessHandler(function(r){btn.disabled=false;out.textContent='Fail berjaya diarkibkan. ';var a=document.createElement('a');a.href=r.url;a.target='_blank';a.rel='noopener';a.textContent='Buka fail';out.appendChild(a);}).withFailureHandler(function(err){btn.disabled=false;out.textContent=err.message;}).portalMuatNaik(PORTAL_SESSION.token,meta,data,file.name);
+  };reader.readAsDataURL(file);
+};
+</script>
