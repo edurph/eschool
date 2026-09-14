@@ -6,7 +6,7 @@
   <title>Portal e-School Pintar</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #1e1b4b; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0f172a; }
     iframe { width: 100%; height: 100%; border: none; display: block; }
   </style>
 </head>
@@ -14,12 +14,8 @@
   <iframe id="portal" src="" allow="camera; microphone; geolocation"></iframe>
 
   <script>
-    // Pautan Google Apps Script Sebenar Anda:
     const gasUrl = "https://script.google.com/macros/s/AKfycbz44JmQZ0TpSLj7YGRmybHhmFIYHtgFyRTcl5ox5Sp6afaSuTlOVwZ9kVDD0zmH5ARI/exec";
-    
-    // Salin sebarang ID sekolah dari URL (contoh: ?id=XBA1041)
-    const params = window.location.search;
-    document.getElementById("portal").src = gasUrl + params;
+    document.getElementById("portal").src = gasUrl + window.location.search;
   </script>
 </body>
 </html>
