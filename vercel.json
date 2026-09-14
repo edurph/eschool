@@ -1,0 +1,19 @@
+{
+  "redirects": [
+    {
+      "source": "/sksook",
+      "destination": "https://script.google.com/macros/s/AKfycbz44JmQZ0TpSLj7YGRmybHhmFIYHtgFyRTcl5ox5Sp6afaSuTlOVwZ9kVDD0zmH5ARI/exec?id=XBA1041",
+      "permanent": false
+    },
+    {
+      "source": "/sklotong",
+      "destination": "https://script.google.com/macros/s/AKfycbz44JmQZ0TpSLj7YGRmybHhmFIYHtgFyRTcl5ox5Sp6afaSuTlOVwZ9kVDD0zmH5ARI/exec?id=XBA1111",
+      "permanent": false
+    },
+    {
+      "source": "/(.*)",
+      "destination": "https://script.google.com/macros/s/AKfycbz44JmQZ0TpSLj7YGRmybHhmFIYHtgFyRTcl5ox5Sp6afaSuTlOVwZ9kVDD0zmH5ARI/exec",
+      "permanent": false
+    }
+  ]
+}
