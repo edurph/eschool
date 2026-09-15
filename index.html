@@ -1,1 +1,62 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>EduRPH - Portal Digital Sekolah</title>
+  
+  <!-- Tetapan PWA Aplikasi Telefon -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#312e81">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="EduRPH">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2602/2602414.png">
 
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0f172a; font-family: system-ui, sans-serif; }
+    iframe { width: 100%; height: 100%; border: none; display: block; }
+  </style>
+</head>
+<body>
+  <iframe id="portal" src="" allow="camera; microphone; geolocation"></iframe>
+
+  <script>
+    // URL Backend Google Apps Script Utama
+    const GAS_URL_BASE = "https://script.google.com/macros/s/AKfycbz44JmQZ0TpSLj7YGRmybHhmFIYHtgFyRTcl5ox5Sp6afaSuTlOVwZ9kVDD0zmH5ARI/exec";
+
+    const host = window.location.hostname.toLowerCase();
+    const urlParams = new URLSearchParams(window.location.search);
+    let schoolId = urlParams.get('id') || urlParams.get('sekolah');
+
+    // 1. Pengecaman Subdomain & Routing Automatik
+    if (host.includes("lotong")) {
+      // Masuk terus ke SK LOTONG (XBA1111)
+      schoolId = "XBA1111";
+      document.getElementById("portal").src = GAS_URL_BASE + "?id=" + encodeURIComponent(schoolId);
+    } 
+    else if (host.includes("sook")) {
+      // Masuk terus ke SK SOOK (XBA1041)
+      schoolId = "XBA1041";
+      document.getElementById("portal").src = GAS_URL_BASE + "?id=" + encodeURIComponent(schoolId);
+    } 
+    else if (schoolId) {
+      // Jika ada parameter khas ?id=
+      document.getElementById("portal").src = GAS_URL_BASE + "?id=" + encodeURIComponent(schoolId);
+    } 
+    else {
+      // Jika buka domain utama (edurph.com) -> Terus bawa ke Landing Page Utama
+      window.location.replace("https://edurph.github.io/utama/");
+    }
+
+    // 2. Daftar Service Worker PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js').catch(function(){});
+      });
+    }
+  </script>
+</body>
+</html>
