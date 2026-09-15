@@ -4,6 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Portal e-School Pintar</title>
+  
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#312e81">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="e-School">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2602/2602414.png">
+
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #0f172a; }
@@ -16,6 +25,12 @@
   <script>
     const gasUrl = "https://script.google.com/macros/s/AKfycbz44JmQZ0TpSLj7YGRmybHhmFIYHtgFyRTcl5ox5Sp6afaSuTlOVwZ9kVDD0zmH5ARI/exec";
     document.getElementById("portal").src = gasUrl + window.location.search;
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js');
+      });
+    }
   </script>
 </body>
 </html>
