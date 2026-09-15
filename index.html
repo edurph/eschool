@@ -24,8 +24,27 @@
 
   <script>
     const gasUrl = "https://script.google.com/macros/s/AKfycbz44JmQZ0TpSLj7YGRmybHhmFIYHtgFyRTcl5ox5Sp6afaSuTlOVwZ9kVDD0zmH5ARI/exec";
-    document.getElementById("portal").src = gasUrl + window.location.search;
+    
+    // 1. Semak parameter URL semasa
+    let params = window.location.search;
+    const urlParams = new URLSearchParams(params);
+    let schoolId = urlParams.get('id') || urlParams.get('sekolah');
 
+    if (schoolId) {
+      // Simpan ID sekolah dalam memori telefon guru
+      localStorage.setItem('eschool_saved_id', schoolId);
+    } else {
+      // Jika guru buka dari ikon telefon (tanpa URL parameter), ambil ID yang pernah disimpan!
+      const savedId = localStorage.getItem('eschool_saved_id');
+      if (savedId) {
+        params = '?id=' + savedId;
+      }
+    }
+
+    // 2. Muat portal dengan ID sekolah yang diingati
+    document.getElementById("portal").src = gasUrl + params;
+
+    // 3. Daftar Service Worker PWA
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js');
