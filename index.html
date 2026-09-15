@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Portal Digital Sekolah</title>
+  <title>EduRPH - Portal Digital Sekolah</title>
   
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#312e81">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="e-School">
+  <meta name="apple-mobile-web-app-title" content="EduRPH">
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2602/2602414.png">
 
   <style>
@@ -24,29 +24,31 @@
 
   <script>
     const GAS_URL_BASE = "https://script.google.com/macros/s/AKfycbz44JmQZ0TpSLj7YGRmybHhmFIYHtgFyRTcl5ox5Sp6afaSuTlOVwZ9kVDD0zmH5ARI/exec";
-
-    // 1. Pengecaman Sekolah Automatik mengikut Subdomain
     const host = window.location.hostname.toLowerCase();
     const urlParams = new URLSearchParams(window.location.search);
     let schoolId = urlParams.get('id') || urlParams.get('sekolah');
 
-    if (!schoolId) {
-      if (host.includes("lotong")) {
-        schoolId = "XBA1111"; // SK LOTONG, NABAWAN
-      } else if (host.includes("sook")) {
-        schoolId = "XBA1041"; // SK SOOK, KENINGAU
-      } else {
-        schoolId = localStorage.getItem('edurph_school_id') || "XBA1041";
-      }
+    // 1. Logik Pengecaman Subdomain & Landing Page
+    if (host.includes("lotong")) {
+      // Buka Portal SK Lotong
+      schoolId = "XBA1111";
+      document.getElementById("portal").src = GAS_URL_BASE + "?id=" + encodeURIComponent(schoolId);
+    } 
+    else if (host.includes("sook")) {
+      // Buka Portal SK Sook
+      schoolId = "XBA1041";
+      document.getElementById("portal").src = GAS_URL_BASE + "?id=" + encodeURIComponent(schoolId);
+    } 
+    else if (schoolId) {
+      // Jika ada parameter ?id=
+      document.getElementById("portal").src = GAS_URL_BASE + "?id=" + encodeURIComponent(schoolId);
+    } 
+    else {
+      // Jika orang buka domain utama (edurph.com / www.edurph.com) -> Terus bawa ke Landing Page Utama!
+      window.location.replace("https://edurph.github.io/utama/");
     }
 
-    // Simpan dalam memori peranti
-    localStorage.setItem('edurph_school_id', schoolId);
-
-    // 2. Muat terus Portal Sekolah (Zero Pop-Up!)
-    document.getElementById("portal").src = GAS_URL_BASE + "?id=" + encodeURIComponent(schoolId);
-
-    // 3. Pendaftaran Service Worker PWA
+    // 2. Daftar Service Worker PWA
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
         navigator.serviceWorker.register('/sw.js').catch(function(){});
