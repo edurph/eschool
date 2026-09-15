@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Portal e-School Pintar</title>
+  <title>Portal Digital Sekolah</title>
   
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#312e81">
@@ -15,7 +15,7 @@
 
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #0f172a; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0f172a; font-family: system-ui, sans-serif; }
     iframe { width: 100%; height: 100%; border: none; display: block; }
   </style>
 </head>
@@ -23,31 +23,33 @@
   <iframe id="portal" src="" allow="camera; microphone; geolocation"></iframe>
 
   <script>
-    const gasUrl = "https://script.google.com/macros/s/AKfycbz44JmQZ0TpSLj7YGRmybHhmFIYHtgFyRTcl5ox5Sp6afaSuTlOVwZ9kVDD0zmH5ARI/exec";
-    
-    // 1. Semak parameter URL semasa
-    let params = window.location.search;
-    const urlParams = new URLSearchParams(params);
+    const GAS_URL_BASE = "https://script.google.com/macros/s/AKfycbz44JmQZ0TpSLj7YGRmybHhmFIYHtgFyRTcl5ox5Sp6afaSuTlOVwZ9kVDD0zmH5ARI/exec";
+
+    // 1. Pengecaman Sekolah Automatik mengikut Subdomain
+    const host = window.location.hostname.toLowerCase();
+    const urlParams = new URLSearchParams(window.location.search);
     let schoolId = urlParams.get('id') || urlParams.get('sekolah');
 
-    if (schoolId) {
-      // Simpan ID sekolah dalam memori telefon guru
-      localStorage.setItem('eschool_saved_id', schoolId);
-    } else {
-      // Jika guru buka dari ikon telefon (tanpa URL parameter), ambil ID yang pernah disimpan!
-      const savedId = localStorage.getItem('eschool_saved_id');
-      if (savedId) {
-        params = '?id=' + savedId;
+    if (!schoolId) {
+      if (host.includes("lotong")) {
+        schoolId = "XBA1111"; // SK LOTONG, NABAWAN
+      } else if (host.includes("sook")) {
+        schoolId = "XBA1041"; // SK SOOK, KENINGAU
+      } else {
+        schoolId = localStorage.getItem('edurph_school_id') || "XBA1041";
       }
     }
 
-    // 2. Muat portal dengan ID sekolah yang diingati
-    document.getElementById("portal").src = gasUrl + params;
+    // Simpan dalam memori peranti
+    localStorage.setItem('edurph_school_id', schoolId);
 
-    // 3. Daftar Service Worker PWA
+    // 2. Muat terus Portal Sekolah (Zero Pop-Up!)
+    document.getElementById("portal").src = GAS_URL_BASE + "?id=" + encodeURIComponent(schoolId);
+
+    // 3. Pendaftaran Service Worker PWA
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js');
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js').catch(function(){});
       });
     }
   </script>
