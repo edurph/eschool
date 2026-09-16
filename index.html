@@ -23,29 +23,29 @@
   <iframe id="portal" src="" allow="camera; microphone; geolocation"></iframe>
 
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbz44JmQZ0TpSLj7YGRmybHhmFIYHtgFyRTcl5ox5Sp6afaSuTlOVwZ9kVDD0zmH5ARI/exec";
+    // URL Web App Deployment Baharu untuk Setiap Sekolah
+    const URL_SK_SOOK = "https://script.google.com/macros/s/AKfycbzBeBpykfVe20xWA8FcBEobgUKrNnKr8BYfAoMzawE-2FoPs5NMe6FjF539b7Xm77DX4Q/exec";
+    const URL_SK_LOTONG = "https://script.google.com/macros/s/AKfycbwuqk7gaXQQ1fktYxMUq8fFv9lCCMt5FupP8hBOCC6GfpP9jkQiWbql4rgqUX9Jobfw/exec";
+
     const host = window.location.hostname.toLowerCase();
     const urlParams = new URLSearchParams(window.location.search);
-    let schoolId = urlParams.get('id') || urlParams.get('sekolah');
+    let schoolId = (urlParams.get('id') || urlParams.get('sekolah') || '').toUpperCase();
 
-    // 1. Pengecaman Subdomain & Routing Sekolah
-    if (host.includes("lotong")) {
-      // 🏫 SK LOTONG (XBA1111)
-      document.getElementById("portal").src = GAS_URL + "?id=XBA1111";
-    } 
-    else if (host.includes("sook")) {
+    // 1. Pengecaman Subdomain & Penetapan Sasaran Iframe
+    if (host.includes("sook") || schoolId === "XBA1041") {
       // 🏫 SK SOOK (XBA1041)
-      document.getElementById("portal").src = GAS_URL + "?id=XBA1041";
+      document.getElementById("portal").src = URL_SK_SOOK + "?id=XBA1041";
     } 
-    else if (schoolId) {
-      document.getElementById("portal").src = GAS_URL + "?id=" + encodeURIComponent(schoolId);
+    else if (host.includes("lotong") || schoolId === "XBA1111") {
+      // 🏫 SK LOTONG (XBA1111)
+      document.getElementById("portal").src = URL_SK_LOTONG + "?id=XBA1111";
     } 
     else {
-      // 🌐 Domain Utama -> Buka Landing Page
+      // 🌐 Domain Utama / Tanpa Subdomain -> Buka Landing Page
       window.location.replace("https://edurph.github.io/utama/");
     }
 
-    // 2. Daftar Service Worker PWA
+    // 2. Pendaftaran Service Worker PWA
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
         navigator.serviceWorker.register('/sw.js').catch(function(){});
